@@ -9,5 +9,6 @@ urlpatterns = patterns('',
     url(r'^logout',logout_page),
     url(r'^checkvalidusername',checkvalidusername),
     url(r'^chat',chat),
+    url(r'^addchat',addchat),
 
 )

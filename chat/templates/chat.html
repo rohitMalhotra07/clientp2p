@@ -1,6 +1,7 @@
 <html>
 <head>
 {% load static %}
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.5/jquery.min.js"></script>
 
 <script type="text/javascript">
 function chatuser(num)
@@ -40,19 +41,55 @@ function add_chat()
 	var name2 = document.getElementById('chat_receiver').innerHTML.toLowerCase();
 	name2 = name2.replace(/\s/g,'');
 	file = name1+"_"+name2+".json";
+	file = "static/json/"+file;
 
 	//alert (file);
 
 	$.getJSON(file, function(data) {
 
-
         var output="";
+        Message=document.getElementById('chat_message').value
+        data['chat'].push({
+        	to:"rohit malhotra",
+        	from:"ronak mundra",
+        	time:"12:05",
+        	message:Message
+        	});
         for (var i in data.chat) {
             output+="<div class = 'name'>"+data.chat[i].from + "</div><div class = 'message'>"+data.chat[i].message + "</div><br>";
         }
-
+        //Message=document.getElementById('chat_message').value
+        //output+="<div class = 'name'>"+data.chat[i].from + "</div><div class = 'message'>"+Message + "</div><br>"
         output+="</ul>";
+        document.getElementById('chat_message').value=""
         document.getElementById("past_chat").innerHTML=output;
+
+
+        $.ajax({
+                    'url':"http://localhost:8000/addchat",  // or just url: "/my-url/path/"
+                    'type': "POST",
+                    'dataType' : 'json',
+                    'data':{
+                    		csrfmiddlewaretoken: document.getElementsByName('csrfmiddlewaretoken')[0].value,
+                           	to:'rohit malhotra',
+        				   	from:'ronak mundra',
+        					time:'12:05',
+        					message: Message,
+                         },
+
+
+                    'success': function(data) {
+                                                alert("data")
+                                                if(data=="False")
+                                                {
+                                                    alert("data saved");
+                                                }
+                                            },
+                    'error': function(xhr, textStatus, errorThrown){
+                                                                    alert(errorThrown)
+                                                                    alert("Please report this error: "+errorThrown+xhr.status+xhr.responseText);
+                                                                }
+                    });
   		});
 
 
@@ -98,7 +135,9 @@ function add_chat()
 	
 			<div id="past_chat"></div>
 	
-				<form><br><br>
+				<form>
+                    {% csrf_token %}
+					<br><br>
 					<input type="text" style="width:90%; margin-left:5%; margin-top:10px; height:50px;" id="chat_message"><br><br>
 					<input type="submit" value = "SEND MESSAGE" style="margin-left:5%" onclick="add_chat()">
 				</form>
