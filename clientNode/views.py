@@ -6,14 +6,40 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from django.views.decorators.csrf import csrf_protect,csrf_exempt
 from django.shortcuts import render_to_response
-from django.http import HttpResponse,HttpResponseRedirect,HttpRequest
+from django.http import HttpResponse,HttpResponseRedirect,HttpRequest,StreamingHttpResponse
 from django.template import RequestContext
 from uuid import getnode as get_mac
 import json
 import requests
 from django.contrib.auth.models import User
+from clientNode.models import *
+import threading
+import time
 
-ServerAddress="http://localhost:8010"
+ServerAddress="http://127.0.0.1:8010"
+"""
+exitPolling=1
+class pollingThread (threading.Thread):
+
+    def __init__(self ,serverAddress,username):
+        threading.Thread.__init__(self)
+        self.serverAddress = serverAddress
+        self.username=username
+
+    def run(self):
+        startPolling(self.serverAddress,self.username)
+
+def startPolling(serverAddress,username):
+    global exitPolling
+    url=serverAddress+'/clientToServerPolling'
+    data={'username':username}
+    while exitPolling!=0:
+        r=requests.get(url,data=json.dumps(data))
+        data_received=json.loads(r.text)
+        print "response of polling recieved"
+        time.sleep(10)
+    print "exiting polling"
+"""
 
 def login(request):
     global ServerAddress
@@ -28,9 +54,11 @@ def login(request):
             'mac_address':mac_address,
         }
         print dataq
+        tempusername=request.POST['username']
         r = requests.get(url,data=json.dumps(dataq))
         try:
-            if r.text== "logged in":
+            data_received=json.loads(r.text)
+            if data_received['value']== "logged in":
                 u=User.objects.create(username=request.POST['username'],password=request.POST['password'])
                 print u
                 u.is_active=True
@@ -38,13 +66,14 @@ def login(request):
                 data={
                     'username':request.POST['username']
                 }
+                updateonlinelist(data_received)
+                #startPollingThread(tempusername)
                 return HttpResponseRedirect("http://127.0.0.1:8000/home?"+"username="+request.POST['username'])
             else:
                 return HttpResponseRedirect('http://127.0.0.1:8000')
-
-
         except:
-            if r.text=="logged in":
+            data_received=json.loads(r.text)
+            if data_received['value']=="logged in":
                 u=User.objects.get(username=request.POST['username'])
                 print u
                 u.is_active=True
@@ -53,6 +82,8 @@ def login(request):
                 data={
                     'username':request.POST['username']
                 }
+                updateonlinelist(data_received)
+                #startPollingThread(tempusername)
                 return HttpResponseRedirect("http://127.0.0.1:8000/home?"+"username="+request.POST['username'])
                 #return HttpResponseRedirect("http://127.0.0.1:8000/home")
             else:
@@ -64,8 +95,24 @@ def login(request):
                 'form':form
             })
         return render_to_response('registration/login.html',variables,)
+"""
+def startPollingThread(username):
+    global ServerAddress
+    thread1=pollingThread(ServerAddress,username)
+    thread1.start()
+"""
+def updateonlinelist(data_received):
+    for item in data_received['onlinelist']:
+        print item['username']
+        tempusername=item['username']
+        tempip=item['ip_address']
+        n=OnlinePeople.objects.filter(name=tempusername).count()
+        if n==0:
+            u=OnlinePeople.objects.create(name=tempusername,ip_address=tempip,onlineInfo=True)
+        else:
+            pass
+    print data_received
 
-@csrf_exempt
 def register(request):
     global ServerAddress
     if request.method == 'POST':
@@ -103,7 +150,15 @@ def register_success(request):
     )
  
 def logout_page(request):
+    global ServerAddress
+    #global exitPolling
     logout(request)
+    url=ServerAddress+'/logout'
+    print request.GET.get('username')
+    data={'username':request.GET.get('username')}
+    r=requests.get(url,data=json.dumps(data))
+    #return HttpResponse(r.text)
+    #exitPolling=0
     return HttpResponseRedirect('/')
 
 #@login_required(login_url='/')
@@ -123,4 +178,5 @@ def checkvalidusername(request):
     dataq={'username': request.POST.get('Username')}
     print dataq
     r=requests.get(url,data=json.dumps(dataq))
-    return HttpResponse(r)
+    #print r.text
+    return HttpResponse(json.dumps(r.text),content_type="application/json")
